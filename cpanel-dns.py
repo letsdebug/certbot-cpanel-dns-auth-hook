@@ -13,8 +13,6 @@ from time import sleep
 CPANEL_URI = "https://cpanel.example.com:2083"
 # Normal cPanel login credentials
 CPANEL_AUTH = HTTPBasicAuth("username", "password")
-# If you don't have a trusted certificate on :2083
-CPANEL_INSECURE_VERIFY = False
 # Adjust based on the performance of your DNS cluster
 CPANEL_BIND_DELAY = 15
 
