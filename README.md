@@ -11,8 +11,8 @@ All it requires is that you have cPanel login credentials, and that your cPanel 
 These instructions assume you are on a shell as the `root` user.
 
 1. Download `cpanel-dns.py` somewhere onto your server. In this example, we will use `/etc/letsencrypt/cpanel-dns.py` as the location.
-2. `chmod 0700 /etc/letsencrypt-cpanel-dns.py && chown root:root /etc/letsencrypt-cpanel-dns.py`
-3. Modify the configuration section of `/etc/letsencrypt-cpanel-dns.py` :
+2. `chmod 0700 /etc/letsencrypt/cpanel-dns.py && chown root:root /etc/letsencrypt/cpanel-dns.py`
+3. Modify the configuration section of `/etc/letsencrypt/cpanel-dns.py` :
 
 ```python
 # Configure here
