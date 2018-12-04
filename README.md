@@ -32,6 +32,7 @@ CPANEL_BIND_DELAY = 15
 certbot certonly --manual \
 --manual-auth-hook "/etc/letsencrypt/cpanel-dns.py create" \
 --manual-cleanup-hook "/etc/letsencrypt/cpanel-dns.py delete" \
--d "*.my.domain.example.com" -d "*.example.com"
+-d "*.my.domain.example.com" -d "*.example.com" \
+--preferred-challenges dns-01
 ```
 5. If this succeeds, so should automatic renewal.
