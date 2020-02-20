@@ -10,18 +10,24 @@ All it requires is that you have cPanel login credentials, and that your cPanel 
 
 These instructions assume you are on a shell as the `root` user.
 
+The hook has one dependency, the  `requests` python package. If you installed Certbot from your distro packages, you will probably need to
+install something like `python-requests`/`python2-requests`/`python3-requests`.
+
 1. Download `cpanel-dns.py` somewhere onto your server. In this example, we will use `/etc/letsencrypt/cpanel-dns.py` as the location.
 2. `chmod 0700 /etc/letsencrypt/cpanel-dns.py && chown root:root /etc/letsencrypt/cpanel-dns.py`
 3. Modify the configuration section of `/etc/letsencrypt/cpanel-dns.py` :
 
 ```python
-# Configure here
+# Configure here or provide credentials via environment variables
 # URL to your cPanel login
-CPANEL_URI = "https://cpanel.my-server.com:2083"
+CPANEL_URI = os.environ.get("CPANEL_DNS_CPANEL_URI", "https://cpanel.example.com:2083")
 # Normal cPanel login credentials
-CPANEL_AUTH = HTTPBasicAuth("username", "password")
-# Adjust based on the performance of your DNS cluster.
-CPANEL_BIND_DELAY = 15
+CPANEL_AUTH = HTTPBasicAuth(
+    os.environ.get("CPANEL_DNS_CPANEL_AUTH_USERNAME", "username"),
+    os.environ.get("CPANEL_DNS_CPANEL_AUTH_PASSWORD", "password"),
+)
+# Adjust based on the performance of your DNS cluster
+CPANEL_BIND_DELAY = int(os.environ.get("CPANEL_DNS_CPANEL_DELAY", "15"))
 ```
 
 4. Try issue a certificate now.
@@ -34,6 +40,11 @@ certbot certonly --manual \
 --preferred-challenges dns-01
 ```
 5. If this succeeds, so should automatic renewal.
+
+## Testing (for developers)
+There is a basic tox integration test in place. To run it, pass the details of your cPanel server using environment variables when calling `tox`, e.g.:
+
+    CPANEL_DNS_CPANEL_DELAY=1 CERTBOT_DOMAIN=example.com CPANEL_DNS_CPANEL_URI=https://cpanel.example.com:2083 CPANEL_DNS_CPANEL_AUTH_USERNAME=exampleuser CPANEL_DNS_CPANEL_AUTH_PASSWORD=examplepassword tox
 
 ## License
 
