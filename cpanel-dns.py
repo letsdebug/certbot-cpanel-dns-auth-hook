@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
 import requests
-from requests.auth import HTTPBasicAuth
+from requests.auth import HTTPBasicAuth, AuthBase
 import sys
 import os
-import string
 from time import sleep
 
 try:
@@ -15,25 +14,40 @@ except ImportError:
 # Configure here or provide credentials via environment variables
 # URL to your cPanel login
 CPANEL_URI = os.environ.get("CPANEL_DNS_CPANEL_URI", "https://cpanel.example.com:2083")
-# Normal cPanel login credentials
-CPANEL_AUTH = HTTPBasicAuth(
-    os.environ.get("CPANEL_DNS_CPANEL_AUTH_USERNAME", "username"),
-    os.environ.get("CPANEL_DNS_CPANEL_AUTH_PASSWORD", "password"),
-)
+
+# cPanel login credentials
+CPANEL_AUTH_USERNAME = os.environ.get("CPANEL_DNS_CPANEL_AUTH_USERNAME", "username")
+CPANEL_AUTH_PASSWORD = os.environ.get("CPANEL_DNS_CPANEL_AUTH_PASSWORD", "password")
+# If CPANEL_AUTH_PASSWORD is a cPanel API token, set this to "token".
+CPANEL_AUTH_METHOD = os.environ.get("CPANEL_DNS_CPANEL_AUTH_METHOD", "password")
+
 # Adjust based on the performance of your DNS cluster
 CPANEL_BIND_DELAY = int(os.environ.get("CPANEL_DNS_CPANEL_DELAY", "15"))
 
 
+class APITokenAuth(AuthBase):
+
+    def __init__(self, username, api_token):
+        self.username = username
+        self.api_token = api_token
+
+    def __call__(self, r):
+        r.headers["Authorization"] = "cpanel {}:{}".format(self.username, self.api_token)
+        return r
+
+
 def cpapi2_request(module, function, data=None):
     params = {
-        "cpanel_jsonapi_user": CPANEL_AUTH.username,
+        "cpanel_jsonapi_user": CPANEL_AUTH_USERNAME,
         "cpanel_jsonapi_apiversion": "2",
         "cpanel_jsonapi_module": module,
         "cpanel_jsonapi_func": function,
     }
     url = "{}/json-api/cpanel?{}".format(CPANEL_URI, urlencode(params))
 
-    resp = requests.post(url, data=data, auth=CPANEL_AUTH)
+    auth_cls = APITokenAuth if CPANEL_AUTH_METHOD == "token" else HTTPBasicAuth
+
+    resp = requests.post(url, data=data, auth=auth_cls(CPANEL_AUTH_USERNAME, CPANEL_AUTH_PASSWORD))
     resp.raise_for_status()
 
     as_json = resp.json()
@@ -117,12 +131,13 @@ def remove_record(domain, txt_value):
     cpapi2_request("ZoneEdit", "remove_zone_record", delete_params)
 
 
-act = sys.argv[1]
+if __name__ == "__main__":
+    act = sys.argv[1]
 
-if act == "create":
-    create_record(os.environ["CERTBOT_DOMAIN"], os.environ["CERTBOT_VALIDATION"])
-elif act == "delete":
-    remove_record(os.environ["CERTBOT_DOMAIN"], os.environ["CERTBOT_VALIDATION"])
-else:
-    print("Unknown action: {}".format(act))
-    exit(1)
+    if act == "create":
+        create_record(os.environ["CERTBOT_DOMAIN"], os.environ["CERTBOT_VALIDATION"])
+    elif act == "delete":
+        remove_record(os.environ["CERTBOT_DOMAIN"], os.environ["CERTBOT_VALIDATION"])
+    else:
+        print("Unknown action: {}".format(act))
+        exit(1)

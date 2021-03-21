@@ -21,11 +21,13 @@ install something like `python-requests`/`python2-requests`/`python3-requests`.
 # Configure here or provide credentials via environment variables
 # URL to your cPanel login
 CPANEL_URI = os.environ.get("CPANEL_DNS_CPANEL_URI", "https://cpanel.example.com:2083")
-# Normal cPanel login credentials
-CPANEL_AUTH = HTTPBasicAuth(
-    os.environ.get("CPANEL_DNS_CPANEL_AUTH_USERNAME", "username"),
-    os.environ.get("CPANEL_DNS_CPANEL_AUTH_PASSWORD", "password"),
-)
+
+# cPanel login credentials
+CPANEL_AUTH_USERNAME = os.environ.get("CPANEL_DNS_CPANEL_AUTH_USERNAME", "username")
+CPANEL_AUTH_PASSWORD = os.environ.get("CPANEL_DNS_CPANEL_AUTH_PASSWORD", "password")
+# If CPANEL_AUTH_PASSWORD is a cPanel API token, set this to "token".
+CPANEL_AUTH_METHOD = os.environ.get("CPANEL_DNS_CPANEL_AUTH_METHOD", "password")
+
 # Adjust based on the performance of your DNS cluster
 CPANEL_BIND_DELAY = int(os.environ.get("CPANEL_DNS_CPANEL_DELAY", "15"))
 ```
