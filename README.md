@@ -6,6 +6,8 @@ It is suitable when you want to use Certbot to issue an e.g. wildcard certificat
 
 All it requires is that you have cPanel login credentials, and that your cPanel account has the ability to set TXT records.
 
+The script can optionally install the issued certificate on a selected domain via the cPanel API.
+
 ## Usage
 
 These instructions assume you are on a shell as the `root` user.
@@ -30,9 +32,15 @@ CPANEL_AUTH_METHOD = os.environ.get("CPANEL_DNS_CPANEL_AUTH_METHOD", "password")
 
 # Adjust based on the performance of your DNS cluster
 CPANEL_BIND_DELAY = int(os.environ.get("CPANEL_DNS_CPANEL_DELAY", "15"))
+
+# Optional for installation: Domain to install the received certificate for
+CPANEL_TARGET_DOMAIN = os.environ.get("CPANEL_DNS_INSTALL_TARGET_DOMAIN", "example.com")
+
+# Optional for installation: Certbot configuration directory (if not the default)
+CERTBOT_CONFIG_DIR = os.environ.get("CPANEL_DNS_INSTALL_CERTBOT_CONFIG_DIR", "/etc/letsencrypt")
 ```
 
-4. Try issue a certificate now.
+4. Try to issue a certificate now.
 
 ```bash
 certbot certonly --manual \
@@ -41,7 +49,15 @@ certbot certonly --manual \
 -d "*.my.domain.example.com" -d "*.example.com" \
 --preferred-challenges dns-01
 ```
-5. If this succeeds, so should automatic renewal.
+
+If this succeeds, so should automatic renewal.
+
+5. Optionally, install the certificate:
+
+```bash
+/etc/letsencrypt/cpanel-dns.py install
+```
+
 
 ## Testing (for developers)
 There is a basic tox integration test in place. To run it, pass the details of your cPanel server using environment variables when calling `tox`, e.g.:

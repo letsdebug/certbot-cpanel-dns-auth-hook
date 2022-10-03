@@ -24,6 +24,12 @@ CPANEL_AUTH_METHOD = os.environ.get("CPANEL_DNS_CPANEL_AUTH_METHOD", "password")
 # Adjust based on the performance of your DNS cluster
 CPANEL_BIND_DELAY = int(os.environ.get("CPANEL_DNS_CPANEL_DELAY", "15"))
 
+# Optional for installation: Domain to install the received certificate for
+CPANEL_TARGET_DOMAIN = os.environ.get("CPANEL_DNS_INSTALL_TARGET_DOMAIN", "example.com")
+
+# Optional for installation: Certbot configuration directory (if not the default)
+CERTBOT_CONFIG_DIR = os.environ.get("CPANEL_DNS_INSTALL_CERTBOT_CONFIG_DIR", "/etc/letsencrypt")
+
 
 class APITokenAuth(AuthBase):
 
@@ -36,6 +42,13 @@ class APITokenAuth(AuthBase):
         return r
 
 
+def cpanel_post(url, data):
+    auth_cls = APITokenAuth if CPANEL_AUTH_METHOD == "token" else HTTPBasicAuth
+    resp = requests.post(url, data=data, auth=auth_cls(CPANEL_AUTH_USERNAME, CPANEL_AUTH_PASSWORD))
+    resp.raise_for_status()
+    return resp.json()
+
+
 def cpapi2_request(module, function, data=None):
     params = {
         "cpanel_jsonapi_user": CPANEL_AUTH_USERNAME,
@@ -45,13 +58,12 @@ def cpapi2_request(module, function, data=None):
     }
     url = "{}/json-api/cpanel?{}".format(CPANEL_URI, urlencode(params))
 
-    auth_cls = APITokenAuth if CPANEL_AUTH_METHOD == "token" else HTTPBasicAuth
+    return cpanel_post(url, data)
 
-    resp = requests.post(url, data=data, auth=auth_cls(CPANEL_AUTH_USERNAME, CPANEL_AUTH_PASSWORD))
-    resp.raise_for_status()
 
-    as_json = resp.json()
-    return as_json
+def cpuapi_request(module, function, data=None):
+    url = f"{CPANEL_URI}/execute/{module}/{function}"
+    return cpanel_post(url, data)
 
 
 def normalize_fqdn(fqdn):
@@ -131,6 +143,24 @@ def remove_record(domain, txt_value):
     cpapi2_request("ZoneEdit", "remove_zone_record", delete_params)
 
 
+def get_certbot_file_contents(filename):
+    path = os.path.join(CERTBOT_CONFIG_DIR, f"live/{CPANEL_TARGET_DOMAIN}/{filename}")
+    with open(path) as f:
+        return f.read()
+
+
+def install_certificate(domain):
+    data = {
+        "domain": domain,
+        "cert": get_certbot_file_contents("cert.pem"),
+        "key": get_certbot_file_contents("privkey.pem"),
+        "cabundle": get_certbot_file_contents("chain.pem"),
+    }
+
+    req = cpuapi_request("SSL", "install_ssl", data)
+    print(req["messages"])
+
+
 if __name__ == "__main__":
     act = sys.argv[1]
 
@@ -138,6 +168,8 @@ if __name__ == "__main__":
         create_record(os.environ["CERTBOT_DOMAIN"], os.environ["CERTBOT_VALIDATION"])
     elif act == "delete":
         remove_record(os.environ["CERTBOT_DOMAIN"], os.environ["CERTBOT_VALIDATION"])
+    elif act == "install":
+        install_certificate(CPANEL_TARGET_DOMAIN)
     else:
         print("Unknown action: {}".format(act))
         exit(1)
