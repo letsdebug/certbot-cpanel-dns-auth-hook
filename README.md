@@ -44,7 +44,7 @@ certbot certonly --manual \
 --preferred-challenges dns-01
 ```
 
-You can optionally add `--deploy-hook "/etc/letsencrypt/cpanel-dns.py install` to install the issued certificate on the same CPanel domain as is the certificate's lineage name (in the example above: `example.com`). You can also use `... install example.com` to specify its name if your CPanel domain is different.
+You can optionally add `--deploy-hook "/etc/letsencrypt/cpanel-dns.py install"` to install the issued certificate on the same cPanel domain as is the certificate's lineage name (in the example above: `example.com`). You can also use `... install example.com` to specify its name if your cPanel domain is different.
 
 If this succeeds, so should automatic renewal.
 

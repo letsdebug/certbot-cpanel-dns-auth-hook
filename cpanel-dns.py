@@ -173,9 +173,9 @@ if __name__ == "__main__":
             domain = sys.argv[2].strip()
         else:
             # Autodetect the domain from the certificate lineage path:
-            domain = cert_live_dir.split('/')[-1]
+            domain = os.path.basename(os.path.normpath(cert_live_dir))
 
-        print(f"Installing certificate for CPanel domain: {domain}")
+        print(f"Installing certificate for cPanel domain: {domain}")
         install_certificate(cert_live_dir, domain)
     else:
         print("Unknown action: {}".format(act))
