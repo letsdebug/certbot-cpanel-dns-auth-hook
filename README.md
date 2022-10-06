@@ -33,9 +33,6 @@ CPANEL_AUTH_METHOD = os.environ.get("CPANEL_DNS_CPANEL_AUTH_METHOD", "password")
 # Adjust based on the performance of your DNS cluster
 CPANEL_BIND_DELAY = int(os.environ.get("CPANEL_DNS_CPANEL_DELAY", "15"))
 
-# Optional for installation: Domain to install the received certificate for
-CPANEL_TARGET_DOMAIN = os.environ.get("CPANEL_DNS_INSTALL_TARGET_DOMAIN", "example.com")
-
 # Optional for installation: Certbot configuration directory (if not the default)
 CERTBOT_CONFIG_DIR = os.environ.get("CPANEL_DNS_INSTALL_CERTBOT_CONFIG_DIR", "/etc/letsencrypt")
 ```
@@ -50,13 +47,9 @@ certbot certonly --manual \
 --preferred-challenges dns-01
 ```
 
+You can optionally add `--deploy-hook "/etc/letsencrypt/cpanel-dns.py install example.com` to install the issued certificate on the specified CPanel domain. If certificates for multiple domains are issued, you may omit specifying the domain for best-effort autodetection.
+
 If this succeeds, so should automatic renewal.
-
-5. Optionally, install the certificate:
-
-```bash
-/etc/letsencrypt/cpanel-dns.py install
-```
 
 
 ## Testing (for developers)
