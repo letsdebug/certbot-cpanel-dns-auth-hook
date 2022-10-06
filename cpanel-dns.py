@@ -24,9 +24,6 @@ CPANEL_AUTH_METHOD = os.environ.get("CPANEL_DNS_CPANEL_AUTH_METHOD", "password")
 # Adjust based on the performance of your DNS cluster
 CPANEL_BIND_DELAY = int(os.environ.get("CPANEL_DNS_CPANEL_DELAY", "15"))
 
-# Optional for installation: Domain to install the received certificate for
-CPANEL_TARGET_DOMAIN = os.environ.get("CPANEL_DNS_INSTALL_TARGET_DOMAIN", "example.com")
-
 # Optional for installation: Certbot configuration directory (if not the default)
 CERTBOT_CONFIG_DIR = os.environ.get("CPANEL_DNS_INSTALL_CERTBOT_CONFIG_DIR", "/etc/letsencrypt")
 
@@ -143,8 +140,8 @@ def remove_record(domain, txt_value):
     cpapi2_request("ZoneEdit", "remove_zone_record", delete_params)
 
 
-def get_certbot_file_contents(filename):
-    path = os.path.join(CERTBOT_CONFIG_DIR, f"live/{CPANEL_TARGET_DOMAIN}/{filename}")
+def get_certbot_file_contents(domain, filename):
+    path = os.path.join(CERTBOT_CONFIG_DIR, f"live/{domain}/{filename}")
     with open(path) as f:
         return f.read()
 
@@ -152,13 +149,45 @@ def get_certbot_file_contents(filename):
 def install_certificate(domain):
     data = {
         "domain": domain,
-        "cert": get_certbot_file_contents("cert.pem"),
-        "key": get_certbot_file_contents("privkey.pem"),
-        "cabundle": get_certbot_file_contents("chain.pem"),
+        "cert": get_certbot_file_contents(domain, "cert.pem"),
+        "key": get_certbot_file_contents(domain, "privkey.pem"),
+        "cabundle": get_certbot_file_contents(domain, "chain.pem"),
     }
 
     req = cpuapi_request("SSL", "install_ssl", data)
     print(req["messages"])
+
+
+def clean_renewed_domains(domains):
+    # We need to grab a clean, unified list of domains
+    # to install SSL on - CPanel usually manages multiple
+    # subdomains like [mail/ftp/www/*].example.com and
+    # example.com under a single "example.com" entity.
+
+    # Certbot gets us a list of domains for which all
+    # certs were renewed, so let's automate the most
+    # common case cleanly from environment variables.
+    # For certs manually provisioned outside of these,
+    # users need to specify target CPanel domains on
+    # the hook's command line.
+    clean_domains = set()
+
+    # By default they're space-delimited:
+    for domain in domains.split(' '):
+        domain = domain.strip()
+
+        if domain.startswith('www.'):
+            domain = domain[4:]
+
+        if domain.startswith('*.'):
+            domain = domain[2:]
+
+        if len(domain) < 3:  # Whitespace entry?
+            continue
+
+        clean_domains.add(domain)
+
+    return list(clean_domains)
 
 
 if __name__ == "__main__":
@@ -169,7 +198,17 @@ if __name__ == "__main__":
     elif act == "delete":
         remove_record(os.environ["CERTBOT_DOMAIN"], os.environ["CERTBOT_VALIDATION"])
     elif act == "install":
-        install_certificate(CPANEL_TARGET_DOMAIN)
+        if len(sys.argv) >= 3:
+            # Don't clean domains here:
+            domains = sys.argv[2:]
+        elif "RENEWED_DOMAINS" in os.environ:
+            domains = clean_renewed_domains(os.environ["RENEWED_DOMAINS"])
+        else:
+            exit("Deployment usage: cpanel-dns.py install <DOMAIN>")
+
+        for domain in domains:
+            print(f"Installing certificates for CPanel domain: {domain}")
+            install_certificate(domain)
     else:
         print("Unknown action: {}".format(act))
         exit(1)
