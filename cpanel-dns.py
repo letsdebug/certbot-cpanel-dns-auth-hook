@@ -36,6 +36,13 @@ class APITokenAuth(AuthBase):
         return r
 
 
+def cpanel_post(url, data):
+    auth_cls = APITokenAuth if CPANEL_AUTH_METHOD == "token" else HTTPBasicAuth
+    resp = requests.post(url, data=data, auth=auth_cls(CPANEL_AUTH_USERNAME, CPANEL_AUTH_PASSWORD))
+    resp.raise_for_status()
+    return resp.json()
+
+
 def cpapi2_request(module, function, data=None):
     params = {
         "cpanel_jsonapi_user": CPANEL_AUTH_USERNAME,
@@ -45,13 +52,12 @@ def cpapi2_request(module, function, data=None):
     }
     url = "{}/json-api/cpanel?{}".format(CPANEL_URI, urlencode(params))
 
-    auth_cls = APITokenAuth if CPANEL_AUTH_METHOD == "token" else HTTPBasicAuth
+    return cpanel_post(url, data)
 
-    resp = requests.post(url, data=data, auth=auth_cls(CPANEL_AUTH_USERNAME, CPANEL_AUTH_PASSWORD))
-    resp.raise_for_status()
 
-    as_json = resp.json()
-    return as_json
+def cpuapi_request(module, function, data=None):
+    url = f"{CPANEL_URI}/execute/{module}/{function}"
+    return cpanel_post(url, data)
 
 
 def normalize_fqdn(fqdn):
@@ -131,6 +137,24 @@ def remove_record(domain, txt_value):
     cpapi2_request("ZoneEdit", "remove_zone_record", delete_params)
 
 
+def get_certbot_file_contents(cert_live_dir, filename):
+    path = os.path.join(cert_live_dir, filename)
+    with open(path) as f:
+        return f.read()
+
+
+def install_certificate(cert_live_dir, domain):
+    data = {
+        "domain": domain,
+        "cert": get_certbot_file_contents(cert_live_dir, "cert.pem"),
+        "key": get_certbot_file_contents(cert_live_dir, "privkey.pem"),
+        "cabundle": get_certbot_file_contents(cert_live_dir, "chain.pem"),
+    }
+
+    req = cpuapi_request("SSL", "install_ssl", data)
+    print(req["messages"])
+
+
 if __name__ == "__main__":
     act = sys.argv[1]
 
@@ -138,6 +162,21 @@ if __name__ == "__main__":
         create_record(os.environ["CERTBOT_DOMAIN"], os.environ["CERTBOT_VALIDATION"])
     elif act == "delete":
         remove_record(os.environ["CERTBOT_DOMAIN"], os.environ["CERTBOT_VALIDATION"])
+    elif act == "install":
+        if not "RENEWED_LINEAGE" in os.environ:
+            exit("Set the RENEWED_LINEAGE env var to the renewed cert's live "
+                 "directory (example: '/etc/letsencrypt/live/example.com').")
+
+        cert_live_dir = os.environ["RENEWED_LINEAGE"]
+        if len(sys.argv) > 2:
+            # Read the domain name from the command line
+            domain = sys.argv[2].strip()
+        else:
+            # Autodetect the domain from the certificate lineage path:
+            domain = os.path.basename(os.path.normpath(cert_live_dir))
+
+        print(f"Installing certificate for cPanel domain: {domain}")
+        install_certificate(cert_live_dir, domain)
     else:
         print("Unknown action: {}".format(act))
         exit(1)
